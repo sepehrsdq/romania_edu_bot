@@ -1,0 +1,265 @@
+from aiogram import Router, F
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+
+from bot.services.city_service import (
+    get_active_cities,
+    get_city_by_id,
+    get_active_universities_by_city,
+    get_university_by_id,
+)
+from bot.services.user_service import get_user_by_telegram_id
+
+router = Router()
+
+
+def build_cities_keyboard(cities):
+    inline_keyboard = []
+
+    row = []
+    for city in cities:
+        city_title = city.name_fa if city.name_fa else city.name_en
+
+        row.append(
+            InlineKeyboardButton(
+                text=city_title,
+                callback_data=f"city:{city.id}"
+            )
+        )
+
+        if len(row) == 2:
+            inline_keyboard.append(row)
+            row = []
+
+    if row:
+        inline_keyboard.append(row)
+
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
+def build_city_detail_keyboard(city_id: int):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎓 مشاهده دانشگاه‌های این شهر",
+                    callback_data=f"city_universities:{city_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 بازگشت به لیست شهرها",
+                    callback_data="back_to_cities"
+                )
+            ],
+        ]
+    )
+
+
+def build_universities_keyboard(universities, city_id: int):
+    inline_keyboard = []
+
+    for university in universities:
+        title = university.name_fa if university.name_fa else university.name_en
+
+        inline_keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=title,
+                    callback_data=f"university:{university.id}"
+                )
+            ]
+        )
+
+    inline_keyboard.append(
+        [
+            InlineKeyboardButton(
+                text="🔙 بازگشت به اطلاعات شهر",
+                callback_data=f"city:{city_id}"
+            )
+        ]
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+
+def build_university_detail_keyboard(city_id: int):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔙 بازگشت به دانشگاه‌های شهر",
+                    callback_data=f"city_universities:{city_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🏙 بازگشت به لیست شهرها",
+                    callback_data="back_to_cities"
+                )
+            ],
+        ]
+    )
+
+
+@router.message(F.text == "🏙 شهرها و دانشگاه‌ها")
+async def cities_menu(message: Message):
+    cities = await get_active_cities()
+
+    if not cities:
+        await message.answer("فعلاً هیچ شهری در سیستم ثبت نشده است.")
+        return
+
+    await message.answer(
+        "🏙 لطفاً یک شهر را انتخاب کنید:",
+        reply_markup=build_cities_keyboard(cities)
+    )
+
+
+@router.callback_query(F.data == "back_to_cities")
+async def back_to_cities(callback: CallbackQuery):
+    cities = await get_active_cities()
+
+    if not cities:
+        await callback.message.answer("فعلاً هیچ شهری در سیستم ثبت نشده است.")
+        await callback.answer()
+        return
+
+    await callback.message.answer(
+        "🏙 لطفاً یک شهر را انتخاب کنید:",
+        reply_markup=build_cities_keyboard(cities)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("city:"))
+async def city_detail(callback: CallbackQuery):
+    city_id = int(callback.data.split(":")[1])
+    city = await get_city_by_id(city_id)
+
+    if not city:
+        await callback.message.answer("این شهر پیدا نشد یا غیرفعال شده است.")
+        await callback.answer()
+        return
+
+    title = city.name_fa if city.name_fa else city.name_en
+
+    text = f"""
+🏙 {title}
+{city.name_en}
+
+{city.full_description or city.short_description or "توضیحی برای این شهر ثبت نشده است."}
+
+💰 هزینه زندگی:
+{city.cost_of_living or "هنوز اطلاعاتی ثبت نشده است."}
+
+🎓 زندگی دانشجویی:
+{city.student_life or "هنوز اطلاعاتی ثبت نشده است."}
+"""
+
+    await callback.message.answer(
+        text,
+        reply_markup=build_city_detail_keyboard(city.id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("city_universities:"))
+async def city_universities(callback: CallbackQuery):
+    city_id = int(callback.data.split(":")[1])
+
+    city = await get_city_by_id(city_id)
+    if not city:
+        await callback.message.answer("این شهر پیدا نشد یا غیرفعال شده است.")
+        await callback.answer()
+        return
+
+    universities = await get_active_universities_by_city(city_id)
+
+    if not universities:
+        await callback.message.answer("فعلاً دانشگاهی برای این شهر ثبت نشده است.")
+        await callback.answer()
+        return
+
+    city_title = city.name_fa if city.name_fa else city.name_en
+
+    await callback.message.answer(
+        f"🎓 دانشگاه‌های شهر {city_title}:",
+        reply_markup=build_universities_keyboard(universities, city_id)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("university:"))
+async def university_detail(callback: CallbackQuery):
+    university_id = int(callback.data.split(":")[1])
+    university = await get_university_by_id(university_id)
+
+    if not university:
+        await callback.message.answer("این دانشگاه پیدا نشد یا غیرفعال شده است.")
+        await callback.answer()
+        return
+
+    user = await get_user_by_telegram_id(callback.from_user.id)
+
+    user_is_premium = False
+    if user and user.is_premium:
+        user_is_premium = True
+
+    title = university.name_fa if university.name_fa else university.name_en
+
+    if university.is_premium and not user_is_premium:
+        text = f"""
+🎓 {title}
+{university.name_en}
+
+🔒 اطلاعات کامل این دانشگاه در بخش پرمیوم پروما ویزا قرار دارد.
+
+در نسخه رایگان فقط اطلاعات اولیه نمایش داده می‌شود.
+
+برای مشاهده اطلاعات کامل شامل:
+✅ شرایط دقیق پذیرش
+✅ شهریه‌ها
+✅ مدارک لازم
+✅ نکات مهم اپلای
+✅ راهنمای انتخاب رشته
+✅ بررسی اختصاصی شرایط شما
+
+لطفاً برای فعال‌سازی دسترسی پرمیوم با مشاوران پروما ویزا ارتباط بگیرید.
+
+📞 واتساپ / تلگرام:
++40730480000
+"""
+
+        await callback.message.answer(
+            text,
+            reply_markup=build_university_detail_keyboard(university.city_id)
+        )
+        await callback.answer()
+        return
+
+    premium_note = ""
+    if university.is_premium and user_is_premium:
+        premium_note = "\n⭐ شما به محتوای پرمیوم این دانشگاه دسترسی دارید.\n"
+
+    text = f"""
+🎓 {title}
+{university.name_en}
+
+{university.description or "توضیحی برای این دانشگاه ثبت نشده است."}
+
+🌐 وب‌سایت:
+{university.website or "ثبت نشده است."}
+
+📄 شرایط پذیرش:
+{university.admission_requirements or "ثبت نشده است."}
+
+💶 شهریه:
+{university.tuition_fee or "ثبت نشده است."}
+{premium_note}
+"""
+
+    await callback.message.answer(
+        text,
+        reply_markup=build_university_detail_keyboard(university.city_id)
+    )
+    await callback.answer()
