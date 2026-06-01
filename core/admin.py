@@ -1,7 +1,14 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 
-from .models import TelegramUser, City, University, ConsultationRequest
+from .models import (
+    TelegramUser,
+    City,
+    University,
+    ConsultationRequest,
+    CityExtraInfo,
+    UniversityExtraInfo,
+)
 
 
 @admin.register(TelegramUser)
@@ -11,6 +18,8 @@ class TelegramUserAdmin(ModelAdmin):
         "telegram_id",
         "full_name",
         "username",
+        "phone_number",
+        "contact_shared",
         "is_premium",
         "is_admin",
         "is_blocked",
@@ -21,12 +30,14 @@ class TelegramUserAdmin(ModelAdmin):
         "is_premium",
         "is_admin",
         "is_blocked",
+        "contact_shared",
     )
 
     search_fields = (
         "telegram_id",
         "full_name",
         "username",
+        "phone_number",
     )
 
     list_editable = (
@@ -39,15 +50,28 @@ class TelegramUserAdmin(ModelAdmin):
         "full_name",
         "username",
         "language_code",
+        "phone_number",
+        "contact_shared",
         "created_at",
         "updated_at",
+    )
+
+
+class CityExtraInfoInline(TabularInline):
+    model = CityExtraInfo
+    extra = 1
+    fields = (
+        "title",
+        "content",
+        "sort_order",
+        "is_active",
+        "is_premium",
     )
 
 
 class UniversityInline(TabularInline):
     model = University
     extra = 0
-
     fields = (
         "name_fa",
         "name_en",
@@ -82,7 +106,22 @@ class CityAdmin(ModelAdmin):
         "slug": ("name_en",)
     }
 
-    inlines = [UniversityInline]
+    inlines = [
+        CityExtraInfoInline,
+        UniversityInline,
+    ]
+
+
+class UniversityExtraInfoInline(TabularInline):
+    model = UniversityExtraInfo
+    extra = 1
+    fields = (
+        "title",
+        "content",
+        "sort_order",
+        "is_active",
+        "is_premium",
+    )
 
 
 @admin.register(University)
@@ -113,6 +152,10 @@ class UniversityAdmin(ModelAdmin):
     prepopulated_fields = {
         "slug": ("name_en",)
     }
+
+    inlines = [
+        UniversityExtraInfoInline,
+    ]
 
 
 @admin.register(ConsultationRequest)

@@ -102,19 +102,6 @@ def build_university_detail_keyboard(city_id: int):
     )
 
 
-def build_extra_text(extra_infos):
-    extra_text = ""
-
-    for item in extra_infos:
-        extra_text += f"""
-
-📌 {item.title}
-{item.content or ""}
-"""
-
-    return extra_text
-
-
 @router.message(F.text == "🏙 شهرها و دانشگاه‌ها")
 async def cities_menu(message: Message):
     cities = await get_active_cities()
@@ -144,6 +131,7 @@ async def back_to_cities(callback: CallbackQuery):
     )
     await callback.answer()
 
+/pak
 
 @router.callback_query(F.data.startswith("city:"))
 async def city_detail(callback: CallbackQuery):
@@ -152,44 +140,8 @@ async def city_detail(callback: CallbackQuery):
 
     if not city:
         await callback.message.answer("این شهر پیدا نشد یا غیرفعال شده است.")
-        await callback.answer()
-        return
-
-    user = await get_user_by_telegram_id(callback.from_user.id)
-    user_is_premium = bool(user and user.is_premium)
-
-    extra_infos = await get_extra_infos(
-        target_type="city",
-        target_id=city.id,
-        user_is_premium=user_is_premium
-    )
-
-    extra_text = build_extra_text(extra_infos)
-
-    title = city.name_fa if city.name_fa else city.name_en
-
-    text = f"""
-🏙 {title}
-{city.name_en}
-
-{city.full_description or city.short_description or "توضیحی برای این شهر ثبت نشده است."}
-
-💰 هزینه زندگی:
-{city.cost_of_living or "هنوز اطلاعاتی ثبت نشده است."}
-
-🎓 زندگی دانشجویی:
-{city.student_life or "هنوز اطلاعاتی ثبت نشده است."}
-
-{extra_text}
-"""
-
-    await callback.message.answer(
-        text,
-        reply_markup=build_city_detail_keyboard(city.id)
-    )
-    await callback.answer()
-
-
+        await callb
+/pak
 @router.callback_query(F.data.startswith("city_universities:"))
 async def city_universities(callback: CallbackQuery):
     city_id = int(callback.data.split(":")[1])
@@ -227,7 +179,10 @@ async def university_detail(callback: CallbackQuery):
         return
 
     user = await get_user_by_telegram_id(callback.from_user.id)
-    user_is_premium = bool(user and user.is_premium)
+
+    user_is_premium = False
+    if user and user.is_premium:
+        user_is_premium = True
 
     title = university.name_fa if university.name_fa else university.name_en
 
@@ -261,14 +216,6 @@ async def university_detail(callback: CallbackQuery):
         await callback.answer()
         return
 
-    extra_infos = await get_extra_infos(
-        target_type="university",
-        target_id=university.id,
-        user_is_premium=user_is_premium
-    )
-
-    extra_text = build_extra_text(extra_infos)
-
     premium_note = ""
     if university.is_premium and user_is_premium:
         premium_note = "\n⭐ شما به محتوای پرمیوم این دانشگاه دسترسی دارید.\n"
@@ -287,8 +234,6 @@ async def university_detail(callback: CallbackQuery):
 
 💶 شهریه:
 {university.tuition_fee or "ثبت نشده است."}
-
-{extra_text}
 {premium_note}
 """
 

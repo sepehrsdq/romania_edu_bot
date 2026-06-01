@@ -7,6 +7,9 @@ class TelegramUser(models.Model):
     username = models.CharField(max_length=255, null=True, blank=True)
     language_code = models.CharField(max_length=20, null=True, blank=True)
 
+    phone_number = models.CharField("شماره تماس تلگرام", max_length=100, null=True, blank=True)
+    contact_shared = models.BooleanField("شماره را ارسال کرده؟", default=False)
+
     is_premium = models.BooleanField(default=False)
     is_blocked = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
@@ -115,3 +118,87 @@ class ConsultationRequest(models.Model):
 
     def __str__(self):
         return f"{self.full_name or 'بدون نام'} - {self.phone_number or 'بدون شماره'}"
+
+
+class ExtraInfo(models.Model):
+    TARGET_CHOICES = (
+        ("city", "شهر"),
+        ("university", "دانشگاه"),
+    )
+
+    target_type = models.CharField("نوع بخش", max_length=50, choices=TARGET_CHOICES)
+    target_id = models.IntegerField("شناسه شهر یا دانشگاه")
+
+    title = models.CharField("عنوان", max_length=255)
+    content = models.TextField("توضیحات", null=True, blank=True)
+
+    sort_order = models.IntegerField("ترتیب نمایش", default=0)
+    is_active = models.BooleanField("فعال", default=True)
+    is_premium = models.BooleanField("پرمیوم", default=False)
+
+    created_at = models.DateTimeField("تاریخ ایجاد", null=True, blank=True)
+    updated_at = models.DateTimeField("تاریخ ویرایش", null=True, blank=True)
+
+    class Meta:
+        db_table = "extra_infos"
+        verbose_name = "اطلاعات اضافه"
+        verbose_name_plural = "اطلاعات اضافه شهرها و دانشگاه‌ها"
+
+    def __str__(self):
+        return f"{self.get_target_type_display()} - {self.title}"
+
+
+class CityExtraInfo(models.Model):
+    city = models.ForeignKey(
+        City,
+        on_delete=models.CASCADE,
+        related_name="extra_infos",
+        verbose_name="شهر"
+    )
+
+    title = models.CharField("عنوان", max_length=255)
+    content = models.TextField("توضیحات", null=True, blank=True)
+
+    sort_order = models.IntegerField("ترتیب نمایش", default=0)
+    is_active = models.BooleanField("فعال", default=True)
+    is_premium = models.BooleanField("پرمیوم", default=False)
+
+    created_at = models.DateTimeField("تاریخ ایجاد", null=True, blank=True)
+    updated_at = models.DateTimeField("تاریخ ویرایش", null=True, blank=True)
+
+    class Meta:
+        db_table = "city_extra_infos"
+        verbose_name = "اطلاعات اضافه شهر"
+        verbose_name_plural = "اطلاعات اضافه شهرها"
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.city} - {self.title}"
+
+
+class UniversityExtraInfo(models.Model):
+    university = models.ForeignKey(
+        University,
+        on_delete=models.CASCADE,
+        related_name="extra_infos",
+        verbose_name="دانشگاه"
+    )
+
+    title = models.CharField("عنوان", max_length=255)
+    content = models.TextField("توضیحات", null=True, blank=True)
+
+    sort_order = models.IntegerField("ترتیب نمایش", default=0)
+    is_active = models.BooleanField("فعال", default=True)
+    is_premium = models.BooleanField("پرمیوم", default=False)
+
+    created_at = models.DateTimeField("تاریخ ایجاد", null=True, blank=True)
+    updated_at = models.DateTimeField("تاریخ ویرایش", null=True, blank=True)
+
+    class Meta:
+        db_table = "university_extra_infos"
+        verbose_name = "اطلاعات اضافه دانشگاه"
+        verbose_name_plural = "اطلاعات اضافه دانشگاه‌ها"
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.university} - {self.title}"

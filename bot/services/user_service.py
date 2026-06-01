@@ -15,7 +15,6 @@ async def register_or_update_user(telegram_user: TelegramAiogramUser):
         )
 
         user = result.scalar_one_or_none()
-
         is_admin = telegram_user.id in ADMIN_IDS
 
         if user is None:
@@ -34,6 +33,7 @@ async def register_or_update_user(telegram_user: TelegramAiogramUser):
             user.is_admin = is_admin
 
         await session.commit()
+        await session.refresh(user)
 
         return user
 
@@ -46,6 +46,29 @@ async def get_user_by_telegram_id(telegram_id: int):
             )
         )
         return result.scalar_one_or_none()
+
+
+async def update_user_phone(telegram_id: int, phone_number: str):
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(TelegramUser).where(
+                TelegramUser.telegram_id == telegram_id
+            )
+        )
+
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            return None
+
+        user.phone_number = phone_number
+        user.contact_shared = True
+
+        await session.commit()
+        await session.refresh(user)
+
+        return user
+
 
 async def get_all_active_users():
     async with AsyncSessionLocal() as session:
